@@ -1,0 +1,18 @@
+[
+  {
+    "idContrato": "1401023",
+    "nome": "Clínica Teste",
+    "cnpj": "00000000000000",
+    "celular": "93999999999",
+    "email": "mc511557@gmail.com",
+    "ignorarEnvio": false
+  },
+  {
+    "idContrato": "1411023",
+    "nome": "Clinica Teste 2",
+    "cnpj": "99999999999999",
+    "celular": "93999999999",
+    "email": "spinofftecnologia@gmail.com",
+    "ignorarEnvio": false
+  }
+]
