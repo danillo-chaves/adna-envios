@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Check, FileText, User, Hash, Phone, Mail, AlertCircle, Pencil, X } from 'lucide-react';
-import { Clinica } from '../models/clinicaModel';
+import type { Clinica } from '../models/clinicaModel';
 
 interface CadastroFormProps {
   onClinicaCadastrada: () => void;
@@ -16,6 +16,7 @@ export default function CadastroForm({ onClinicaCadastrada, clinicaEmEdicao, onC
   const [cnpj, setCnpj] = useState('');
   const [celular, setCelular] = useState('');
   const [email, setEmail] = useState('');
+  const [enviarWhatsapp, setEnviarWhatsapp] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export default function CadastroForm({ onClinicaCadastrada, clinicaEmEdicao, onC
       setCnpj(formatCnpj(clinicaEmEdicao.cnpj));
       setCelular(formatCelular(clinicaEmEdicao.celular));
       setEmail(clinicaEmEdicao.email);
+      setEnviarWhatsapp(!!clinicaEmEdicao.enviarWhatsapp);
       setErrorMsg(null);
       setSuccess(false);
     } else {
@@ -55,6 +57,7 @@ export default function CadastroForm({ onClinicaCadastrada, clinicaEmEdicao, onC
       setCnpj('');
       setCelular('');
       setEmail('');
+      setEnviarWhatsapp(false);
     }
   }, [clinicaEmEdicao]);
 
@@ -89,6 +92,7 @@ export default function CadastroForm({ onClinicaCadastrada, clinicaEmEdicao, onC
           cnpj: cleanCnpj,
           celular: cleanCelular,
           email,
+          enviarWhatsapp,
         }),
       });
 
@@ -107,6 +111,7 @@ export default function CadastroForm({ onClinicaCadastrada, clinicaEmEdicao, onC
           setCnpj('');
           setCelular('');
           setEmail('');
+          setEnviarWhatsapp(false);
         }
         
         // Callback para atualizar lista
@@ -207,7 +212,7 @@ export default function CadastroForm({ onClinicaCadastrada, clinicaEmEdicao, onC
 
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              WhatsApp / Celular
+              WhatsApp / Celular {!enviarWhatsapp && <span className="text-slate-400 font-normal lowercase">(Opcional)</span>}
             </label>
             <div className="relative group">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -219,7 +224,7 @@ export default function CadastroForm({ onClinicaCadastrada, clinicaEmEdicao, onC
                 onChange={handleCelularChange}
                 placeholder="(00) 00000-0000"
                 maxLength={15}
-                required
+                required={enviarWhatsapp}
                 className="w-full pl-9 pr-4 py-2 bg-white text-slate-800 placeholder-slate-400 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-500/40 hover:border-slate-300 transition-all font-sans text-sm"
               />
             </div>
@@ -243,6 +248,19 @@ export default function CadastroForm({ onClinicaCadastrada, clinicaEmEdicao, onC
               className="w-full pl-9 pr-4 py-2 bg-white text-slate-800 placeholder-slate-400 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-500/40 hover:border-slate-300 transition-all font-sans text-sm"
             />
           </div>
+        </div>
+
+        <div className="flex items-center gap-2 mt-2 px-1">
+          <input
+            type="checkbox"
+            id="enviarWhatsapp"
+            checked={enviarWhatsapp}
+            onChange={(e) => setEnviarWhatsapp(e.target.checked)}
+            className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500"
+          />
+          <label htmlFor="enviarWhatsapp" className="text-sm font-medium text-slate-700 cursor-pointer">
+            Enviar WhatsApp
+          </label>
         </div>
 
         {errorMsg && (

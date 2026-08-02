@@ -1,5 +1,4 @@
-import fs from 'fs/promises';
-import path from 'path';
+import { db } from '../lib/firebase-admin';
 
 export interface Clinica {
   idContrato: string;
@@ -8,64 +7,64 @@ export interface Clinica {
   celular: string;
   email: string;
   ignorarEnvio: boolean;
+  enviarWhatsapp?: boolean;
 }
 
-const DATA_FILE_PATH = path.join(process.cwd(), 'src/data/clinicas.json');
+const COLLECTION_NAME = 'clinicas';
 
 export async function readClinicas(): Promise<Clinica[]> {
   try {
-    await fs.mkdir(path.dirname(DATA_FILE_PATH), { recursive: true });
-    const content = await fs.readFile(DATA_FILE_PATH, 'utf-8');
-    if (!content.trim()) return [];
-    return JSON.parse(content);
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      await writeClinicas([]);
-      return [];
-    }
-    console.error('Erro ao ler clínicas:', error);
+    const snapshot = await db.collection(COLLECTION_NAME).get();
+    return snapshot.docs.map((doc: any) => doc.data() as Clinica);
+  } catch (error) {
+    console.error('Erro ao ler clínicas do Firestore:', error);
     throw new Error('Falha ao obter lista de clínicas.');
   }
 }
 
-export async function writeClinicas(clinicas: Clinica[]): Promise<void> {
-  try {
-    await fs.mkdir(path.dirname(DATA_FILE_PATH), { recursive: true });
-    await fs.writeFile(DATA_FILE_PATH, JSON.stringify(clinicas, null, 2), 'utf-8');
-  } catch (error) {
-    console.error('Erro ao escrever clínicas:', error);
-    throw new Error('Falha ao salvar dados das clínicas.');
-  }
-}
-
 export async function addClinica(clinica: Clinica): Promise<void> {
-  const clinicas = await readClinicas();
-  if (clinicas.some((c) => c.idContrato === clinica.idContrato)) {
-    throw new Error(`Clínica com ID de contrato ${clinica.idContrato} já existe.`);
+  try {
+    const docRef = db.collection(COLLECTION_NAME).doc(clinica.idContrato);
+    const doc = await docRef.get();
+    if (doc.exists) {
+      throw new Error(`Clínica com ID de contrato ${clinica.idContrato} já existe.`);
+    }
+    await docRef.set(clinica);
+  } catch (error: any) {
+    if (error.message.includes('já existe')) throw error;
+    console.error('Erro ao adicionar clínica no Firestore:', error);
+    throw new Error('Falha ao adicionar clínica.');
   }
-  clinicas.push(clinica);
-  await writeClinicas(clinicas);
 }
 
 export async function updateClinica(idContrato: string, data: Partial<Clinica>): Promise<Clinica> {
-  const clinicas = await readClinicas();
-  const index = clinicas.findIndex((c) => c.idContrato === idContrato);
-  if (index === -1) {
-    throw new Error(`Clínica com ID de contrato ${idContrato} não encontrada.`);
+  try {
+    const docRef = db.collection(COLLECTION_NAME).doc(idContrato);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      throw new Error(`Clínica com ID de contrato ${idContrato} não encontrada.`);
+    }
+    await docRef.update(data);
+    const updatedDoc = await docRef.get();
+    return updatedDoc.data() as Clinica;
+  } catch (error: any) {
+    if (error.message.includes('não encontrada')) throw error;
+    console.error('Erro ao atualizar clínica no Firestore:', error);
+    throw new Error('Falha ao atualizar clínica.');
   }
-  
-  // Atualiza apenas os campos permitidos
-  const updatedClinica = { ...clinicas[index], ...data };
-  clinicas[index] = updatedClinica;
-  await writeClinicas(clinicas);
-  return updatedClinica;
 }
 
 export async function deleteClinica(idContrato: string): Promise<void> {
-  const clinicas = await readClinicas();
-  const filteredClinicas = clinicas.filter((c) => c.idContrato !== idContrato);
-  if (clinicas.length === filteredClinicas.length) {
-    throw new Error(`Clínica com ID de contrato ${idContrato} não encontrada.`);
+  try {
+    const docRef = db.collection(COLLECTION_NAME).doc(idContrato);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      throw new Error(`Clínica com ID de contrato ${idContrato} não encontrada.`);
+    }
+    await docRef.delete();
+  } catch (error: any) {
+    if (error.message.includes('não encontrada')) throw error;
+    console.error('Erro ao excluir clínica no Firestore:', error);
+    throw new Error('Falha ao excluir clínica.');
   }
-  await writeClinicas(filteredClinicas);
 }

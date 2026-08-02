@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Mail, FileText, CheckCircle2, XCircle, AlertCircle, Play, Tag, Paperclip, Trash2, Send } from 'lucide-react';
-import { Clinica } from '../models/clinicaModel';
+import { Mail, FileText, CheckCircle2, XCircle, AlertCircle, Play, Tag, Paperclip, Trash2, Send, Folder } from 'lucide-react';
+import type { Clinica } from '../models/clinicaModel';
 
 interface ComposerEmailProps {
   clinicas: Clinica[];
@@ -34,10 +34,15 @@ export default function ComposerEmail({ clinicas }: ComposerEmailProps) {
   const [contextType, setContextType] = useState<'nota' | 'boleto' | 'ambos'>('ambos');
   const [uploadingInfo, setUploadingInfo] = useState<{ idContrato: string; type: 'nota' | 'boleto' } | null>(null);
   
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [readyClinicasCount, setReadyClinicasCount] = useState(0);
+
   const [isSending, setIsSending] = useState(false);
   const [results, setResults] = useState<SendingResult[] | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const [isProcessingFolder, setIsProcessingFolder] = useState(false);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -54,19 +59,19 @@ export default function ComposerEmail({ clinicas }: ComposerEmailProps) {
   const setTemplate = (type: 'nota' | 'boleto' | 'ambos') => {
     setContextType(type);
     if (type === 'nota') {
-      setSubject('Nota Fiscal de Serviços - Detran - {{nome_clinica}}');
+      setSubject('Nota Fiscal de Serviços - SISMAC - {{nome_clinica}}');
       setBody(
-        'Olá, {{nome_clinica}}!\n\nSegue em anexo a Nota Fiscal eletrônica correspondente ao Contrato ID {{id_contrato}}.\n\nDados cadastrados:\nCNPJ: {{cnpj_clinica}}\nWhatsApp: {{celular_clinica}}\n\nQualquer dúvida, estamos à disposição.\n\nAtenciosamente,\nFinanceiro Detran {{nome_clinica}} [{{id_contrato}}]'
+        'Olá, {{nome_clinica}}!\n\nSegue em anexo a Nota Fiscal eletrônica correspondente ao Contrato ID {{id_contrato}}.\n\nDados cadastrados:\nCNPJ: {{cnpj_clinica}}\nWhatsApp: {{celular_clinica}}\n\nQualquer dúvida, estamos à disposição.\n\nAtenciosamente,\nSpin-off Tecnologia {{nome_clinica}} [{{id_contrato}}]'
       );
     } else if (type === 'boleto') {
-      setSubject('Boleto de Pagamento - Detran - {{nome_clinica}}');
+      setSubject('Boleto de Pagamento - SISMAC - {{nome_clinica}}');
       setBody(
-        'Olá, {{nome_clinica}}!\n\nSegue em anexo o boleto bancário para pagamento correspondente ao Contrato ID {{id_contrato}}.\n\nDados cadastrados:\nCNPJ: {{cnpj_clinica}}\nWhatsApp: {{celular_clinica}}\n\nPor favor, efetue o pagamento até o vencimento. Qualquer dúvida, nos avise.\n\nAtenciosamente,\nFinanceiro Detran {{nome_clinica}} [{{id_contrato}}]'
+        'Olá, {{nome_clinica}}!\n\nSegue em anexo o boleto bancário para pagamento correspondente ao Contrato ID {{id_contrato}}.\n\nDados cadastrados:\nCNPJ: {{cnpj_clinica}}\nWhatsApp: {{celular_clinica}}\n\nPor favor, efetue o pagamento até o vencimento. Qualquer dúvida, nos avise.\n\nAtenciosamente,\nSpin-off Tecnologia {{nome_clinica}} [{{id_contrato}}]'
       );
     } else {
-      setSubject('Nota Fiscal e Boleto de Serviços - Detran - {{nome_clinica}}');
+      setSubject('Nota Fiscal e Boleto de Serviços - SISMAC - {{nome_clinica}}');
       setBody(
-        'Olá, {{nome_clinica}}!\n\nSegue em anexo a Nota Fiscal e o boleto correspondente ao Contrato ID {{id_contrato}}.\n\nDados cadastrados:\nCNPJ: {{cnpj_clinica}}\nWhatsApp: {{celular_clinica}}\n\nQualquer dúvida, estamos à disposição.\n\nAtenciosamente,\nFinanceiro Detran {{nome_clinica}} [{{id_contrato}}]'
+        'Olá, {{nome_clinica}}!\n\nSegue em anexo a Nota Fiscal e o boleto correspondente ao Contrato ID {{id_contrato}}.\n\nDados cadastrados:\nCNPJ: {{cnpj_clinica}}\nWhatsApp: {{celular_clinica}}\n\nQualquer dúvida, estamos à disposição.\n\nAtenciosamente,\nSpin-off Tecnologia {{nome_clinica}} [{{id_contrato}}]'
       );
     }
   };
@@ -112,23 +117,99 @@ export default function ComposerEmail({ clinicas }: ComposerEmailProps) {
     }
   };
 
-  const handleRemoveAttachment = (idContrato: string, type: 'nota' | 'boleto') => {
-    setAttachments(prev => {
-      const current = prev[idContrato] || {};
-      const next = { ...current };
-      delete next[type];
+  const handleFolderClick = () => {
+    if (folderInputRef.current) {
+      folderInputRef.current.value = '';
+      folderInputRef.current.click();
+    }
+  };
+
+  const handleFolderChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsProcessingFolder(true);
+    
+    const pdfFiles = Array.from(files).filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+    
+    if (pdfFiles.length === 0) {
+      alert('Nenhum arquivo PDF encontrado na pasta selecionada.');
+      setIsProcessingFolder(false);
+      return;
+    }
+
+    let matchCount = 0;
+    const newAttachments = { ...attachments };
+
+    for (const file of pdfFiles) {
+      // O nome do arquivo sem extensão
+      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
       
-      if (Object.keys(next).length === 0) {
-        const copy = { ...prev };
-        delete copy[idContrato];
-        return copy;
+      // Procura a clínica onde o ID do contrato existe como palavra isolada no nome
+      const clinicaMatch = clinicas.find(c => {
+        const regex = new RegExp(`\\b${c.idContrato}\\b`);
+        return regex.test(nameWithoutExt);
+      });
+
+      if (clinicaMatch) {
+        try {
+          const base64 = await fileToBase64(file);
+          const id = clinicaMatch.idContrato;
+          
+          if (!newAttachments[id]) {
+            newAttachments[id] = {};
+          }
+          
+          newAttachments[id].boleto = {
+            name: file.name,
+            size: file.size,
+            base64,
+          };
+          matchCount++;
+        } catch (err) {
+          console.error(`Erro ao ler arquivo ${file.name}:`, err);
+        }
       }
-      
-      return {
-        ...prev,
-        [idContrato]: next
-      };
+    }
+
+    setAttachments(newAttachments);
+    setIsProcessingFolder(false);
+    alert(`Processamento concluído!\n${matchCount} boleto(s) vinculado(s) automaticamente a partir de ${pdfFiles.length} PDF(s) lidos na pasta.`);
+  };
+
+  const handleRemoveAttachment = (idContrato: string, type: 'nota' | 'boleto') => {
+    setAttachments((prev) => {
+      const newAttachments = { ...prev };
+      if (newAttachments[idContrato]) {
+        delete newAttachments[idContrato][type];
+        // Se ambos foram removidos, deleta o idContrato do objeto para manter limpo
+        if (!newAttachments[idContrato].nota && !newAttachments[idContrato].boleto) {
+          delete newAttachments[idContrato];
+        }
+      }
+      return newAttachments;
     });
+  };
+
+  const handleAttachMockPDFs = () => {
+    const dummyPDF = "data:application/pdf;base64,JVBERi0xLjcKCjEgMCBvYmogICUgZW50cnkgcG9pbnQKPDwKICAvVHlwZSAvQ2F0YWxvZwogIC9QYWdlcyAyIDAgUgo+PgplbmRvYmoKCjIgMCBvYmoKPDwKICAvVHlwZSAvUGFnZXMKICAvTWVkaWFCb3ggWyAwIDAgMjAwIDIwMCBdCiAgL0NvdW50IDEKICAvS2lkcyBbIDMgMCBSIF0KPj4KZW5kb2JqCgozIDAgb2JqCjw8CiAgL1R5cGUgL1BhZ2UKICAvUGFyZW50IDIgMCBSCiAgL1Jlc291cmNlcyA8PAogICAgL0ZvbnQgPDwKICAgICAgL0YxIDQgMCBSCgkJPj4KICA+PgogIC9Db250ZW50cyA1IDAgUgo+PgplbmRvYmoKCjQgMCBvYmoKPDwKICAvVHlwZSAvRm9udAogIC9TdWJ0eXBlIC9UeXBlMQogIC9CYXNlRm9udCAvVGltZXMtUm9tYW4KPj4KZW5kb2JqCgo1IDAgb2JqCjw8IC9MZW5ndGggMzkgPj4Kc3RyZWFtCkJUCi9GMSAxOCBUZgoyMCAxNTAgVGQKKEhlbGxvLCBXb3JsZCEpIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxMCAwMDAwMCBuIAowMDAwMDAwMDY5IDAwMDAwIG4gCjAwMDAwMDAxNTIgMDAwMDAgbiAKMDAwMDAwMDI5NiAwMDAwMCBuIAowMDAwMDAwMzg0IDAwMDAwIG4gCnRyYWlsZXIKPDwKICAvU2l6ZSA2CiAgL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjQ3MwolJUVPRgo=";
+
+    setAttachments(prev => {
+      const mockAttachments: any = { ...prev };
+      clinicas.forEach(c => {
+        mockAttachments[c.idContrato] = {
+          ...(mockAttachments[c.idContrato] || {}),
+          boleto: {
+            name: `boleto_${c.idContrato}.pdf`,
+            size: 1024,
+            base64: dummyPDF
+          }
+        };
+      });
+      return mockAttachments;
+    });
+
+    alert('PDF anexado como BOLETO em TODAS as clínicas carregadas na tela!');
   };
 
   // Calcula estatísticas de mapeamento em tempo real
@@ -186,7 +267,7 @@ export default function ComposerEmail({ clinicas }: ComposerEmailProps) {
     setBody(prev => prev + ' ' + tag);
   };
 
-  const handleDisparar = async () => {
+  const handleDispararClick = () => {
     const readyClinicas = clinicas.filter(c => getClinicaStatus(c).code === 'ready');
     
     if (readyClinicas.length === 0) {
@@ -194,10 +275,14 @@ export default function ComposerEmail({ clinicas }: ComposerEmailProps) {
       return;
     }
 
-    if (!confirm(`Deseja disparar e-mails para ${readyClinicas.length} clínica(s) agora?`)) {
-      return;
-    }
+    setReadyClinicasCount(readyClinicas.length);
+    setIsConfirmModalOpen(true);
+  };
 
+  const executeDisparar = async () => {
+    setIsConfirmModalOpen(false);
+    const readyClinicas = clinicas.filter(c => getClinicaStatus(c).code === 'ready');
+    
     setIsSending(true);
     setResults(null);
     setGeneralError(null);
@@ -337,12 +422,25 @@ export default function ComposerEmail({ clinicas }: ComposerEmailProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       
-      {/* Input de arquivo invisível */}
+      {/* Input de arquivo invisível para arquivos únicos */}
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
         accept="application/pdf"
+        className="hidden"
+      />
+
+      {/* Input de arquivo invisível para pastas */}
+      <input
+        type="file"
+        ref={folderInputRef}
+        onChange={handleFolderChange}
+        accept="application/pdf"
+        // @ts-ignore - Atributos específicos de pastas (WebKit/Blink)
+        webkitdirectory="true"
+        directory="true"
+        multiple
         className="hidden"
       />
 
@@ -500,8 +598,32 @@ export default function ComposerEmail({ clinicas }: ComposerEmailProps) {
           </div>
 
           {/* Listagem de clínicas e status */}
-          <div className="flex-1 overflow-y-auto max-h-[380px] border border-slate-200/80 p-3 bg-slate-50 rounded-xl space-y-3.5 mb-6">
-            <h4 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Clínicas e Anexos</h4>
+          <div className="flex-1 overflow-y-auto min-h-[450px] max-h-[600px] border border-slate-200/80 p-3 bg-slate-50 rounded-xl space-y-3.5 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+              <h4 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Clínicas e Anexos</h4>
+              
+              <div className="flex gap-2 items-center">
+                <button
+                  type="button"
+                  onClick={handleAttachMockPDFs}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg text-[10px] uppercase transition-all shadow-sm active:translate-y-[0.5px] shrink-0"
+                >
+                  ANEXAR BOLETOS
+                </button>
+                {(contextType === 'boleto' || contextType === 'ambos') && (
+                  <button
+                    type="button"
+                    onClick={handleFolderClick}
+                    disabled={isProcessingFolder}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-[10px] uppercase transition-all shadow-sm active:translate-y-[0.5px] disabled:opacity-50 shrink-0"
+                    title="Selecione uma pasta contendo os boletos. O sistema vinculará os PDFs automaticamente verificando o número do contrato no nome do arquivo."
+                  >
+                    <Folder className="w-3 h-3" />
+                    {isProcessingFolder ? 'Processando...' : 'Importar Boletos (Pasta)'}
+                  </button>
+                )}
+              </div>
+            </div>
             {clinicas.length === 0 ? (
               <p className="text-xs text-slate-400 italic text-center py-8">Nenhuma clínica cadastrada.</p>
             ) : (
@@ -548,7 +670,7 @@ export default function ComposerEmail({ clinicas }: ComposerEmailProps) {
 
           {/* Botão de Disparo */}
           <button
-            onClick={handleDisparar}
+            onClick={handleDispararClick}
             disabled={isSending || clinicas.filter(c => getClinicaStatus(c).code === 'ready').length === 0}
             className="w-full mt-auto flex items-center justify-center gap-2.5 px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black tracking-wider uppercase rounded-xl text-xs shadow-lg shadow-blue-500/20 hover:-translate-y-[1px] active:translate-y-[1px] transition-all disabled:opacity-40 disabled:pointer-events-none"
           >
@@ -631,6 +753,38 @@ export default function ComposerEmail({ clinicas }: ComposerEmailProps) {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação */}
+      {isConfirmModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all ring-1 ring-slate-900/5">
+            <div className="p-6 sm:p-8 text-center">
+              <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner ring-8 ring-blue-50/50">
+                <Send className="w-10 h-10 ml-1" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-800 mb-3 font-sans tracking-tight">Confirmar Disparo</h3>
+              <p className="text-slate-600 text-[15px] mb-8 leading-relaxed px-2">
+                Você está prestes a enviar e-mails para <strong className="text-blue-700 font-black text-lg">{readyClinicasCount}</strong> clínica{readyClinicasCount > 1 ? 's' : ''}.<br/>Deseja continuar com o envio em massa?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsConfirmModalOpen(false)}
+                  className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-300"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={executeDisparar}
+                  className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex justify-center items-center gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  Sim, Enviar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

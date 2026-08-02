@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Trash2, Search, AlertTriangle, Eye, EyeOff, Pencil } from 'lucide-react';
-import { Clinica } from '../models/clinicaModel';
+import type { Clinica } from '../models/clinicaModel';
 
 interface ClinicaListProps {
   clinicas: Clinica[];
@@ -246,6 +246,51 @@ export default function ClinicaList({ clinicas, onRefresh, onEdit, clinicaEmEdic
       <div className="flex justify-between items-center text-[10px] text-slate-400 mt-4 px-1 font-semibold">
         <span>Total: {clinicas.length} clínica(s) cadastrada(s)</span>
         <span>Ativas: {clinicas.filter(c => !c.ignorarEnvio).length} | Exceções: {clinicas.filter(c => c.ignorarEnvio).length}</span>
+      </div>
+
+      {/* Card de WhatsApp - Lista Separada */}
+      <div className="mt-8 border-t border-slate-200 pt-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-green-700 font-sans tracking-wide">Envios via WhatsApp</h2>
+            <p className="text-xs text-slate-500 font-medium">Clínicas configuradas para receber mensagens pelo WhatsApp (Futuro)</p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto border border-green-200 rounded-xl bg-green-50/30">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-green-200 bg-green-100/50 text-green-800 text-[10px] font-bold uppercase tracking-wider">
+                <th className="px-4 py-3 text-center w-16">Contrato ID</th>
+                <th className="px-4 py-3">Nome da Clínica</th>
+                <th className="px-4 py-3 w-36">WhatsApp / Fone</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-green-100/50 text-slate-700 text-xs">
+              {clinicas.filter(c => c.enviarWhatsapp).length > 0 ? (
+                clinicas.filter(c => c.enviarWhatsapp).map((clinica) => (
+                  <tr key={clinica.idContrato} className="hover:bg-green-50/50 transition-colors">
+                    <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-600">
+                      {clinica.idContrato}
+                    </td>
+                    <td className="px-4 py-3.5 font-bold text-slate-800">
+                      {clinica.nome}
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-500 font-medium">
+                      {formatCelular(clinica.celular)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={3} className="px-4 py-6 text-center text-slate-400">
+                    <p className="text-xs font-semibold">Nenhuma clínica configurada para WhatsApp.</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Mail, Settings, Users, Send, Info, ChevronRight } from 'lucide-react';
+import { Mail, Settings, Users, Send, Info, ChevronRight, LogOut, Loader2 } from 'lucide-react';
 import SmtpForm from '../components/SmtpForm';
 import CadastroForm from '../components/CadastroForm';
 import ClinicaList from '../components/ClinicaList';
 import ComposerEmail from '../components/ComposerEmail';
-import { Clinica } from '../models/clinicaModel';
+import Login from '../components/Login';
+import type { Clinica } from '../models/clinicaModel';
+import { auth } from '../lib/firebaseClient';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 
 export default function Home() {
   const [clinicas, setClinicas] = useState<Clinica[]>([]);
@@ -14,10 +17,24 @@ export default function Home() {
   const [hasSmtpConfig, setHasSmtpConfig] = useState(false);
   const [clinicaParaEditar, setClinicaParaEditar] = useState<Clinica | null>(null);
 
+  // Auth states
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   useEffect(() => {
-    fetchClinicas();
-    checkSmtpStatus();
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchClinicas();
+      checkSmtpStatus();
+    }
+  }, [user]);
 
   const fetchClinicas = async () => {
     try {
@@ -42,6 +59,19 @@ export default function Home() {
       console.error('Erro ao verificar status SMTP:', err);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex flex-col gap-3 items-center justify-center bg-slate-100">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="text-sm font-medium text-slate-500">Verificando acesso...</span>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 font-sans antialiased selection:bg-blue-500/20 selection:text-blue-900">
@@ -119,6 +149,16 @@ export default function Home() {
               ) : (
                 <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping ml-1"></span>
               )}
+            </button>
+            
+            <div className="w-px h-6 bg-white/20 mx-1"></div>
+            
+            <button
+              onClick={() => signOut(auth)}
+              title="Sair do Sistema"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border bg-slate-200/20 hover:bg-red-500/90 text-white border-transparent hover:border-red-400 shadow-sm"
+            >
+              <LogOut className="w-4 h-4" />
             </button>
           </nav>
         </div>

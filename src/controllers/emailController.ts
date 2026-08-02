@@ -85,6 +85,8 @@ export async function enviarEmailsEmMassa(
 
   // 3. Criar transportador
   const transporter = nodemailer.createTransport({
+    pool: true, // Usa pool de conexões para reutilizar o login
+    maxConnections: 1, // Envia um por vez na mesma conexão
     host: smtpConfig.host || 'smtp.gmail.com',
     port: smtpConfig.port || 465,
     secure: smtpConfig.secure !== undefined ? smtpConfig.secure : true,
@@ -93,6 +95,9 @@ export async function enviarEmailsEmMassa(
       pass: smtpConfig.pass,
     },
   });
+
+  // Função auxiliar de delay (espera em milissegundos)
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   const results: EmailResult[] = [];
 
@@ -182,6 +187,9 @@ export async function enviarEmailsEmMassa(
         })),
       });
 
+      // Pequena pausa (3 segundos) entre cada envio para evitar que o Google bloqueie por SPAM
+      await delay(3000);
+
       results.push({
         idContrato: clinica.idContrato,
         nomeClinica: clinica.nome,
@@ -201,6 +209,9 @@ export async function enviarEmailsEmMassa(
       });
     }
   }
+
+  // Fechar o pool de conexões SMTP após todos os envios
+  transporter.close();
 
   return results;
 }
