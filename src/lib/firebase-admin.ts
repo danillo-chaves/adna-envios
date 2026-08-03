@@ -11,7 +11,7 @@ try {
 
 let db;
 try {
-  db = getFirestore(app);
+  db = getFirestore(app as any);
   db.settings({ ignoreUndefinedProperties: true });
 } catch (error) {
   // Retorna um mock vazio para não quebrar o build do Next.js

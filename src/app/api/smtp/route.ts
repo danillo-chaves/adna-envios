@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import * as SmtpModel from '../../../models/smtpModel';
 import * as EmailController from '../../../controllers/emailController';
