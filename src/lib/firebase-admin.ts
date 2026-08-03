@@ -9,7 +9,7 @@ try {
   console.warn('Aviso: Firebase Admin falhou na inicialização (Isso é normal durante o build do Next.js se não houver credenciais).');
 }
 
-let db;
+let db: any;
 try {
   db = getFirestore(app as any);
   db.settings({ ignoreUndefinedProperties: true });
