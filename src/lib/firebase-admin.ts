@@ -12,13 +12,26 @@ try {
 let db: any;
 try {
   db = getFirestore(app as any);
-  db.settings({ ignoreUndefinedProperties: true });
+  try {
+    db.settings({ ignoreUndefinedProperties: true });
+  } catch (settingError: any) {
+    if (!settingError.message?.includes('already been initialized')) {
+      throw settingError;
+    }
+  }
 } catch (error) {
+  console.error('Firebase Admin Error na inicialização do Firestore:', error);
   // Retorna um mock vazio para não quebrar o build do Next.js
+  const mockQuery = {
+    get: async () => ({ docs: [], empty: true }),
+    orderBy: () => mockQuery,
+    where: () => mockQuery,
+    limit: () => mockQuery,
+  };
   db = {
     collection: () => ({
       doc: () => ({ get: async () => ({ exists: false }), set: async () => {}, update: async () => {}, delete: async () => {} }),
-      get: async () => ({ docs: [], empty: true })
+      ...mockQuery
     })
   } as any;
 }

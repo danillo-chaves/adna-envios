@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Mail, Settings, Users, Send, Info, ChevronRight, LogOut, Loader2 } from 'lucide-react';
+import { Mail, Settings, Users, Send, Info, ChevronRight, LogOut, Loader2, History } from 'lucide-react';
 import SmtpForm from '../components/SmtpForm';
 import CadastroForm from '../components/CadastroForm';
 import ClinicaList from '../components/ClinicaList';
 import ComposerEmail from '../components/ComposerEmail';
 import Login from '../components/Login';
+import HistoricoFaltantesModal from '../components/HistoricoFaltantesModal';
 import type { Clinica } from '../models/clinicaModel';
 import { auth } from '../lib/firebaseClient';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
@@ -16,6 +17,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'clinicas' | 'smtp'>('dashboard');
   const [hasSmtpConfig, setHasSmtpConfig] = useState(false);
   const [clinicaParaEditar, setClinicaParaEditar] = useState<Clinica | null>(null);
+  const [isHistoricoOpen, setIsHistoricoOpen] = useState(false);
 
   // Auth states
   const [user, setUser] = useState<User | null>(null);
@@ -150,6 +152,17 @@ export default function Home() {
                 <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping ml-1"></span>
               )}
             </button>
+            <button
+              onClick={() => setIsHistoricoOpen(true)}
+              title="Histórico de Faltantes"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                isHistoricoOpen
+                  ? 'border-indigo-300 bg-indigo-600 text-white shadow-inner'
+                  : 'bg-slate-200/85 hover:bg-slate-300/90 text-slate-700 border-slate-300'
+              }`}
+            >
+              <History className={`w-4 h-4 ${isHistoricoOpen ? 'text-indigo-200' : 'text-indigo-600'}`} />
+            </button>
             
             <div className="w-px h-6 bg-white/20 mx-1"></div>
             
@@ -236,6 +249,8 @@ export default function Home() {
             <span className="hover:text-slate-800 cursor-pointer" onClick={() => setActiveTab('smtp')}>Servidor SMTP</span>
           </div>
         </footer>
+
+        <HistoricoFaltantesModal isOpen={isHistoricoOpen} onClose={() => setIsHistoricoOpen(false)} />
 
       </div>
     </div>

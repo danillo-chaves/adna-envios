@@ -173,8 +173,29 @@ export default function ComposerEmail({ clinicas }: ComposerEmailProps) {
     }
 
     setAttachments(newAttachments);
+    
+    // Identificar e salvar faltantes (clínicas ativas que não receberam boleto)
+    const faltantesPayload = clinicas
+      .filter(c => !c.ignorarEnvio && !newAttachments[c.idContrato]?.boleto)
+      .map(c => ({
+        clinica: c,
+        dataHora: new Date().toISOString(),
+      }));
+
+    if (faltantesPayload.length > 0) {
+      try {
+        await fetch('/api/faltantes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(faltantesPayload)
+        });
+      } catch (err) {
+        console.error('Erro ao salvar faltantes:', err);
+      }
+    }
+
     setIsProcessingFolder(false);
-    alert(`Processamento concluído!\n${matchCount} boleto(s) vinculado(s) automaticamente a partir de ${pdfFiles.length} PDF(s) lidos na pasta.`);
+    alert(`Processamento concluído!\n${matchCount} boleto(s) vinculado(s) automaticamente a partir de ${pdfFiles.length} PDF(s) lidos na pasta.\n\nFaltaram boletos para ${faltantesPayload.length} clínica(s) ativas.`);
   };
 
   const handleRemoveAttachment = (idContrato: string, type: 'nota' | 'boleto') => {
@@ -437,7 +458,6 @@ export default function ComposerEmail({ clinicas }: ComposerEmailProps) {
         ref={folderInputRef}
         onChange={handleFolderChange}
         accept="application/pdf"
-        // @ts-ignore - Atributos específicos de pastas (WebKit/Blink)
         webkitdirectory="true"
         directory="true"
         multiple
